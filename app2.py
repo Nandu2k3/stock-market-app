@@ -87,5 +87,6 @@ st.write(f"**Linear Regression :** {lr_score:.2f}")
 st.subheader("📉 Linear Regression: Actual vs Predicted")
 st.pyplot(plot_prediction(y_test_reg, y_pred_lr))
 
+    
+   
 
-          
