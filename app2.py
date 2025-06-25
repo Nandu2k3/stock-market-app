@@ -50,6 +50,6 @@ if ticker:
         else:
             st.warning("⚠️ No data found. Please check the ticker symbol.")
     except Exception as e:
-        st.error(f"❌ Error fetching data: {str(e)}") thisi is my python code 
+        st.error(f"❌ Error fetching data: {str(e)}")# thisi is my python code 
 
 
