@@ -1,50 +1,91 @@
-import yfinance as yf
-import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import streamlit as st
-from PIL import Image
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score
 
-# Streamlit Page Config
-st.set_page_config(layout="centered", page_title="Stock Market Visualizer")
+# Load data based on user input
+@st.cache_data
+def load_data(ticker):
+    df = pd.read_csv(f"{ticker}.csv")
+    
+    # Handle Yahoo-style datasets with Date column
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
+    
+    df.ffill(inplace=True)
+    return df
 
-# Title and description
-st.title("📊 Stock Market Visualizer")
-st.markdown("This app lets you visualize the closing price of any stock using different chart types.")
+# ML Models
+def knn_model(X_train, X_test, y_train, y_test):
+    model = KNeighborsClassifier(n_neighbors=3)
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    return accuracy_score(y_test, preds)
 
-# Input section
-ticker = st.text_input("🔤 Enter Stock Ticker Symbol (e.g., AAPL, TSLA)", "AAPL")
+def linear_regression_model(X_train, X_test, y_train, y_test):
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    return model.score(X_test, y_test), model.predict(X_test)
 
-graph_type = st.radio("📈 Select Graph Type", ["Line", "Scatter", "Bar"])
+def bayes_classifier(X_train, X_test, y_train, y_test):
+    model = GaussianNB()
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    return accuracy_score(y_test, preds)
 
-bg_image_file = st.file_uploader("🖼️ Optional: Upload Background Image", type=["jpg", "jpeg", "png"])
+def plot_prediction(y_test, y_pred):
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(y_test.index, y_test.values, label='Actual', color='blue')
+    ax.plot(y_test.index, y_pred, label='Predicted', color='red')
+    ax.set_title('Actual vs Predicted Close Prices')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    return fig
 
-# Fetch data when ticker is entered
-if ticker:
-    try:
-        data = yf.download(ticker)
+# --- Streamlit App ---
+st.title("📈 Stock Market Prediction System")
 
-        if not data.empty:
-            fig, ax = plt.subplots(figsize=(12, 6))
+# Select ticker
+ticker = st.selectbox("Choose Stock Ticker", ["AAPL", "GOOG", "TSLA", "MSFT", "AMZN"])
 
-            if graph_type.lower() == 'line':
-                ax.plot(data['Close'], label='Close Price', color='blue')
-            elif graph_type.lower() == 'scatter':
-                ax.scatter(data.index, data['Close'], label='Close Price', color='green')
-            elif graph_type.lower() == 'bar':
-                ax.bar(data.index, data['Close'], label='Close Price', color='orange')
+# Load dataset
+df = load_data(ticker)
 
-            ax.set_title(f'Closing Price of {ticker}', fontsize=16)
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Closing Price')
-            ax.legend()
+st.subheader(f"{ticker} Dataset Preview")
+st.dataframe(df.head())
 
-            # Optional background image overlay
-            if bg_image_file is not None:
-                img = Image.open(bg_image_file)
-                ax.imshow(img, extent=ax.axis(), aspect='auto', alpha=0.2)
+# Feature engineering
+print(df.columns)
+features = df[['Open', 'High', 'Low', 'Volume']]
+labels = (df['Close'] > df['Open']).astype(int)
 
-            st.pyplot(fig)
-        else:
-            st.warning("⚠️ No data found. Please check the ticker symbol.")
-    except Exception as e:
-        st.error(f"❌ Error fetching data: {str(e)}")
+# Split
+X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, shuffle=False)
+
+# ML Results
+st.subheader("📊 Model Results")
+
+knn_acc = knn_model(X_train, X_test, y_train, y_test)
+st.write(f"**KNN Accuracy:** {knn_acc:.2f}")
+
+bayes_acc = bayes_classifier(X_train, X_test, y_train, y_test)
+st.write(f"**Naive Bayes Accuracy:** {bayes_acc:.2f}")
+
+y_train_reg = df['Close'].loc[y_train.index]
+y_test_reg = df['Close'].loc[y_test.index]
+lr_score, y_pred_lr = linear_regression_model(X_train, X_test, y_train_reg, y_test_reg)
+st.write(f"**Linear Regression :** {lr_score:.2f}")
+
+# Plot
+st.subheader("📉 Linear Regression: Actual vs Predicted")
+st.pyplot(plot_prediction(y_test_reg, y_pred_lr))
+
+
+          
