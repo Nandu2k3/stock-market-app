@@ -3,4 +3,4 @@ yfinance
 matplotlib
 pandas
 pillow
-scikit-learn
+
